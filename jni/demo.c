@@ -117,6 +117,10 @@ void appInit()
 	glGenTextures(1, &tx_id);
 	if (tx_id == 0) debug("NO glGenTextures");
 	glBindTexture(GL_TEXTURE_2D, tx_id);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FBO_SIZE, FBO_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glGenerateMipmapOES(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -292,13 +296,13 @@ void drawCube(int width, int height)
 {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(45.0f,(GLfloat)width/(GLfloat)height,0.1f,10.0f);
+	gluPerspective(45.0f,(GLfloat)width/(GLfloat)height,0.001f,100.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	float zfactor = sin((sTick*30.0f)*0.0001)-1.5f;
-	glTranslatef(0.0f,0.0f,-6.5f+zfactor);
+	float zfactor = sin((sTick*30.0f)*0.0001)*10.0f;
+	glTranslatef(0.0f,0.0f,-10.0f+zfactor);
 	glRotatef(xrot,1.0f,0.0f,0.0f);
 	glRotatef(yrot,0.0f,1.0f,0.0f);
 	glRotatef(zrot,0.0f,0.0f,1.0f);
@@ -360,6 +364,7 @@ void appRender(long tick, int width, int height)
 
 	glBindFramebufferOES(GL_FRAMEBUFFER_OES, fb_id);
 	glViewport(0, 0, FBO_SIZE, FBO_SIZE);
+	glViewport(0, 0, FBO_SIZE, FBO_SIZE);
 
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -368,9 +373,10 @@ void appRender(long tick, int width, int height)
 
 	glBindFramebufferOES(GL_FRAMEBUFFER_OES, 0);
 	glViewport(0, 0, width, height);
+	glViewport(0, 0, width, height);
 
 	glEnable(GL_TEXTURE_2D);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, tx_id);
 	glGenerateMipmapOES(GL_TEXTURE_2D);
