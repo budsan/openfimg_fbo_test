@@ -87,6 +87,9 @@ static long floatToFixed(float value)
 #define FIXED(value) floatToFixed(value)
 
 #define FBO_SIZE 128
+#define TEX_SIZE (FBO_SIZE*FBO_SIZE*4)
+
+static unsigned char dummyTexture[TEX_SIZE];
 
 static long sStartTick = 0;
 static long sTick = 0;
@@ -101,6 +104,9 @@ static GLuint rb_id = 0;
 
 void appInit()
 {
+	unsigned int i;
+	for (i = 0; i < TEX_SIZE; i++) dummyTexture[i] = 255;
+
 	//glClearDepthf(1.0f);
 	//glEnable(GL_DEPTH_TEST);
 	glDisable(GL_DEPTH_TEST);
@@ -120,9 +126,13 @@ void appInit()
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, FBO_SIZE, FBO_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glGenerateMipmapOES(GL_TEXTURE_2D);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	unsigned int level = 0, size = FBO_SIZE;
+	while (size > 0) {
+		glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, dummyTexture);
+		level++; size>>=1;
+	}
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glGenRenderbuffersOES(1, &rb_id);
@@ -379,7 +389,7 @@ void appRender(long tick, int width, int height)
 	glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, tx_id);
-	glGenerateMipmapOES(GL_TEXTURE_2D);
+	//glGenerateMipmapOES(GL_TEXTURE_2D);
 
 	drawCube(width, height);
 

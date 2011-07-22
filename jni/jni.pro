@@ -16,11 +16,13 @@ SOURCES += \
     demo.c \
     app-win32.c \
     app-linux.c \
-    app-android.c
+    app-android.c \
+    awesome.c
 
 HEADERS += \
     importgl.h \
-    app.h
+    app.h \
+    rawtexture.h
 
 symbian {
     #Symbian specific definitions
