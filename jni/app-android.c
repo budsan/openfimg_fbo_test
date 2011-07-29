@@ -85,6 +85,7 @@ Java_com_example_SanAngeles_DemoGLSurfaceView_nativePause( JNIEnv*  env )
 		/* we resumed the animation, so adjust the time offset
          * to take care of the pause interval. */
 		sTimeOffset -= _getTime() - sTimeStopped;
+		appClicked();
 	}
 }
 

@@ -17,7 +17,8 @@ SOURCES += \
     app-win32.c \
     app-linux.c \
     app-android.c \
-    awesome.c
+    awesome.c \
+    rawtexture.c
 
 HEADERS += \
     importgl.h \

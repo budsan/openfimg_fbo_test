@@ -30,52 +30,18 @@
 #include <unistd.h>
 
 #include "importgl.h"
+#include "rawtexture.h"
 
 #include "app.h"
 
+#if 0
 #define CAMTRACK_LEN    5442
 #define RUN_LENGTH  (20 * CAMTRACK_LEN)
+#endif
 
 #undef PI
 #define PI 3.1415926535897932f
 #define RANDOM_UINT_MAX 65535
-
-#if 0
-GLboolean (*IsRenderbufferOES)(GLuint renderbuffer) = 0;
-void (*BindRenderbufferOES) (GLenum target, GLuint renderbuffer) = 0;
-void (*DeleteRenderbuffersOES) (GLsizei n, const GLuint* renderbuffers) = 0;
-void (*GenRenderbuffersOES) (GLsizei n, GLuint* renderbuffers) = 0;
-void (*RenderbufferStorageOES) (GLenum target, GLenum internalformat, GLsizei width, GLsizei height) = 0;
-void (*GetRenderbufferParameterivOES) (GLenum target, GLenum pname, GLint* params) = 0;
-GLboolean (*IsFramebufferOES) (GLuint framebuffer) = 0;
-void (*BindFramebufferOES) (GLenum target, GLuint framebuffer) = 0;
-void (*DeleteFramebuffersOES) (GLsizei n, const GLuint* framebuffers) = 0;
-void (*GenFramebuffersOES) (GLsizei n, GLuint* framebuffers) = 0;
-GLenum (*CheckFramebufferStatusOES) (GLenum target) = 0;
-void (*FramebufferRenderbufferOES) (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) = 0;
-void (*FramebufferTexture2DOES) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) = 0;
-void (*GetFramebufferAttachmentParameterivOES) (GLenum target, GLenum attachment, GLenum pname, GLint* params) = 0;
-void (*GenerateMipmapOES) (GLenum target) = 0;
-
-static void initFunctionsPtr()
-{
-	IsRenderbufferOES                      = eglGetProcAddress("glIsRenderbufferOES");
-	BindRenderbufferOES                    = eglGetProcAddress("glBindRenderbufferOES");
-	DeleteRenderbuffersOES                 = eglGetProcAddress("glDeleteRenderbuffersOES");
-	GenRenderbuffersOES                    = eglGetProcAddress("glGenRenderbuffersOES");
-	RenderbufferStorageOES                 = eglGetProcAddress("glRenderbufferStorageOES");
-	GetRenderbufferParameterivOES          = eglGetProcAddress("glGetRenderbufferParameterivOES");
-	IsFramebufferOES                       = eglGetProcAddress("glIsFramebufferOES");
-	BindFramebufferOES                     = eglGetProcAddress("glBindFramebufferOES");
-	DeleteFramebuffersOES                  = eglGetProcAddress("glDeleteFramebuffersOES");
-	GenFramebuffersOES                     = eglGetProcAddress("glGenFramebuffersOES");
-	CheckFramebufferStatusOES              = eglGetProcAddress("glCheckFramebufferStatusOES");
-	FramebufferRenderbufferOES             = eglGetProcAddress("glFramebufferRenderbufferOES");
-	FramebufferTexture2DOES                = eglGetProcAddress("glFramebufferTexture2DOES");
-	GetFramebufferAttachmentParameterivOES = eglGetProcAddress("glGetFramebufferAttachmentParameterivOES");
-	GenerateMipmapOES                      = eglGetProcAddress("glGenerateMipmapOES");
-}
-#endif
 
 static long floatToFixed(float value)
 {
@@ -89,8 +55,6 @@ static long floatToFixed(float value)
 #define FBO_SIZE 128
 #define TEX_SIZE (FBO_SIZE*FBO_SIZE*4)
 
-static unsigned char dummyTexture[TEX_SIZE];
-
 static long sStartTick = 0;
 static long sTick = 0;
 
@@ -102,38 +66,71 @@ static GLuint tx_id = 0;
 static GLuint fb_id = 0;
 static GLuint rb_id = 0;
 
+#define NUM_MODES 5
+
+static struct {
+	GLenum format;
+	GLenum type;
+} modes[NUM_MODES] = {
+	//RGB
+	GL_RGB , GL_UNSIGNED_BYTE,
+	GL_RGB , GL_UNSIGNED_SHORT_5_6_5,
+	//RGBA
+	GL_RGBA, GL_UNSIGNED_BYTE,
+	GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4,
+	GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1
+};
+
+const char *formatToString(GLenum format)
+{
+	switch(format)
+	{
+	case GL_RGBA: return "GL_RGBA";
+	case GL_RGB:  return "GL_RGB";
+	default:      return "GL_NONE";
+	}
+}
+
+const char *typeToString(GLenum type)
+{
+	switch(type)
+	{
+	case GL_UNSIGNED_BYTE:          return "GL_UNSIGNED_BYTE";
+	case GL_UNSIGNED_SHORT_4_4_4_4: return "GL_UNSIGNED_SHORT_4_4_4_4";
+	case GL_UNSIGNED_SHORT_5_5_5_1: return "GL_UNSIGNED_SHORT_5_5_5_1";
+	case GL_UNSIGNED_SHORT_5_6_5:   return "GL_UNSIGNED_SHORT_5_6_5";
+	default:                        return "GL_NONE";
+	}
+}
+
+static unsigned char change_mode = 0;
+static unsigned char use_mode = 0;
+static unsigned char use_fbo  = 1;
+
+void setupTexture();
+void changeMode();
+
 void appInit()
 {
-	unsigned int i;
-	for (i = 0; i < TEX_SIZE; i++) dummyTexture[i] = 255;
-
 	//glClearDepthf(1.0f);
-	//glEnable(GL_DEPTH_TEST);
-	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0);
 	//glDepthFunc(GL_LESS);
-	//glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
 	//glFrontFace(GL_CCW);
 	//glCullFace(GL_BACK);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//initFunctionsPtr();
 
 	//CREATING FRAMEBUFFER OBJECT
 	glGenTextures(1, &tx_id);
 	if (tx_id == 0) debug("NO glGenTextures");
-	glBindTexture(GL_TEXTURE_2D, tx_id);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	unsigned int level = 0, size = FBO_SIZE;
-	while (size > 0) {
-		glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, size, size, 0, GL_RGBA, GL_UNSIGNED_BYTE, dummyTexture);
-		level++; size>>=1;
-	}
-	glBindTexture(GL_TEXTURE_2D, 0);
+	setupTexture();
 
 	glGenRenderbuffersOES(1, &rb_id);
 	if (rb_id == 0) debug("NO glGenRenderbuffersOES");
@@ -155,6 +152,51 @@ void appInit()
 	glBindFramebufferOES(GL_FRAMEBUFFER_OES, 0);
 }
 
+void setupTexture()
+{
+	glBindTexture(GL_TEXTURE_2D, tx_id);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	if (use_fbo)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, modes[use_mode].format, FBO_SIZE, FBO_SIZE,
+			     0, modes[use_mode].format, modes[use_mode].type, NULL);
+	}
+	else
+	{
+		const raw_texture *awe = get_test_raw_texture_8888();
+		raw_texture *tex = new_raw_texture_from_8888_to_any(awe, modes[use_mode].format, modes[use_mode].type);
+
+		unsigned char *pixels = NULL;
+		unsigned int witdh = 1, height = 1;
+		if (tex != NULL) {
+			witdh  = tex->width;
+			height = tex->height;
+			pixels = tex->pixel_data;
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, modes[use_mode].format, witdh, height,
+			     0, modes[use_mode].format, modes[use_mode].type, pixels);
+
+		delete_raw_texture(tex);
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void changeMode()
+{
+	use_mode = (use_mode+1) % NUM_MODES;
+	if (use_mode == 0) use_fbo = !use_fbo;
+	setupTexture();
+
+	debug("fbo_%d, %s, %s", use_fbo,
+	      formatToString(modes[use_mode].format), typeToString(modes[use_mode].type));
+}
+
 void appResize(int width, int height)
 {
 
@@ -163,6 +205,11 @@ void appResize(int width, int height)
 void appDeinit()
 {
 
+}
+
+void appClicked()
+{
+	change_mode = 1;
 }
 
 static void gluPerspective(GLfloat fovy, GLfloat aspect,
@@ -278,7 +325,7 @@ void drawPoly(int width, int height)
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glTranslatef( 0.0f, 0.0f,-7.0f);
+	glTranslatef( 0.0f, 0.0f,-5.0f);
 	glRotatef(yrot*(PI/2.0f), 0, 0, 1);
 
 	static float colors[] = {
@@ -311,8 +358,8 @@ void drawCube(int width, int height)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	float zfactor = sin((sTick*30.0f)*0.0001)*10.0f;
-	glTranslatef(0.0f,0.0f,-10.0f+zfactor);
+	float zfactor = sin((sTick*30.0f)*0.0001)*3.0f;
+	glTranslatef(0.0f,0.0f,-6.0f+zfactor);
 	glRotatef(xrot,1.0f,0.0f,0.0f);
 	glRotatef(yrot,0.0f,1.0f,0.0f);
 	glRotatef(zrot,0.0f,0.0f,1.0f);
@@ -361,32 +408,43 @@ void appRender(long tick, int width, int height)
 	if (!gAppAlive)
 		return;
 
+	if (change_mode) {
+		change_mode = 0;
+		changeMode();
+	}
+
 	sTick = (sTick + tick - sStartTick) >> 1;
+#if 0
 	if (sTick >= RUN_LENGTH)
 	{
 		gAppAlive = 0;
 		return;
 	}
+#endif
 
 	xrot = sin(sTick*2.0f*PI*0.0001f)*24.0f;
 	yrot = (sTick*45)/1024;
 	zrot = 0;
 
-	glBindFramebufferOES(GL_FRAMEBUFFER_OES, fb_id);
-	glViewport(0, 0, FBO_SIZE, FBO_SIZE);
-	glViewport(0, 0, FBO_SIZE, FBO_SIZE);
+	if (use_fbo)
+	{
+		glBindFramebufferOES(GL_FRAMEBUFFER_OES, fb_id);
+		glViewport(0, 0, FBO_SIZE, FBO_SIZE);
+		glViewport(0, 0, FBO_SIZE, FBO_SIZE);
 
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-	drawPoly(FBO_SIZE, FBO_SIZE);
+		drawPoly(FBO_SIZE, FBO_SIZE);
 
-	glBindFramebufferOES(GL_FRAMEBUFFER_OES, 0);
+		glBindFramebufferOES(GL_FRAMEBUFFER_OES, 0);
+	}
+
 	glViewport(0, 0, width, height);
 	glViewport(0, 0, width, height);
 
 	glEnable(GL_TEXTURE_2D);
-	glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
+	glClearColor(0.4f, 0.4f, 0.8f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, tx_id);
 	//glGenerateMipmapOES(GL_TEXTURE_2D);
@@ -394,5 +452,5 @@ void appRender(long tick, int width, int height)
 	drawCube(width, height);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
-	glDisable(GL_TEXTURE_2D);	
+	glDisable(GL_TEXTURE_2D);
 }

@@ -1,14 +1,19 @@
 #ifndef RAWTEXTURE_H
 #define RAWTEXTURE_H
 
+#include <GLES/gl.h>
+#include <GLES/glext.h>
+
 typedef struct {
-	unsigned int 	 width;
-	unsigned int 	 height;
-	unsigned int 	 bytes_per_pixel; /* 3:RGB, 4:RGBA */
-	unsigned char	*pixel_data;
+	GLsizei         width;
+	GLsizei         height;
+	GLenum          format;
+	GLenum          type;
+	unsigned char  *pixel_data;
 } raw_texture;
 
-//test textures
-const raw_texture getAwesomeTexture();
+const raw_texture *get_test_raw_texture_8888();
+raw_texture* new_raw_texture_from_8888_to_any(const raw_texture* src, GLenum format, GLenum type);
+void delete_raw_texture(raw_texture*);
 
 #endif // RAWTEXTURE_H

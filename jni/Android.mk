@@ -11,6 +11,7 @@ LOCAL_SRC_FILES := \
     importgl.c \
     demo.c \
     app-android.c \
+    rawtexture.c \
     awesome.c
 
 LOCAL_LDLIBS := -lGLESv1_CM -ldl -llog

@@ -42,10 +42,11 @@ extern void appInit();
 extern void appDeinit();
 extern void appResize(int width, int height);
 extern void appRender(long tick, int width, int height);
+extern void appClicked();
 
 extern void appResume();
 
-extern void debug(const char *msg);
+extern void debug( const char *fmt, ...);
 
 /* Value is non-zero when application is alive, and 0 when it is closing.
  * Defined by the application framework.
