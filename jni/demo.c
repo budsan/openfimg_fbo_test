@@ -34,11 +34,6 @@
 
 #include "app.h"
 
-#if 0
-#define CAMTRACK_LEN    5442
-#define RUN_LENGTH  (20 * CAMTRACK_LEN)
-#endif
-
 #undef PI
 #define PI 3.1415926535897932f
 #define RANDOM_UINT_MAX 65535
@@ -414,14 +409,6 @@ void appRender(long tick, int width, int height)
 	}
 
 	sTick = (sTick + tick - sStartTick) >> 1;
-#if 0
-	if (sTick >= RUN_LENGTH)
-	{
-		gAppAlive = 0;
-		return;
-	}
-#endif
-
 	xrot = sin(sTick*2.0f*PI*0.0001f)*24.0f;
 	yrot = (sTick*45)/1024;
 	zrot = 0;
